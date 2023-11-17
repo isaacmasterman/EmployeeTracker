@@ -20,12 +20,14 @@ connection.connect(err => {
 function displaySplashArt() {
 
   // Include your ASCII art here
-    console.log("  _____                 _                          ____                           _              ");
-    console.log("  | ____|_ __ ___  _ __ | | ___  _   _  ___  ___   / ___| ___ _ __   ___ _ __ __ _| |_ ___  _ __ ");
-    console.log("  |  _| | '_ ` _ \| '_ \| |/ _ \| | | |/ _ \/ _ \ | |  _ / _ \ '_ \ / _ \ '__/ _` | __/ _ \| '__|");
-    console.log("  | |___| | | | | | |_) | | (_) | |_| |  __/  __/ | |_| |  __/ | | |  __/ | | (_| | || (_) | |   ");
-    console.log("  |_____|_| |_| |_| .__/|_|\___/ \__, |\___|\___|  \____|\___|_| |_|\___|_|  \__,_|\__\___/|_|   ");
-    console.log("                  |_|            |___/                                                           ");
+    console.log(" _____                _                        ___  ___");
+    console.log("|  ___|              | |                       |  \\/  |");
+    console.log("| |__ _ __ ___  _ __ | | ___  _   _  ___  ___  | .  . | __ _ _ __   __ _  __ _  ___ _ __ ");
+    console.log("|  __| '_ ` _ \\| '_ \\| |/ _ \\| | | |/ _ \\/ _ \\ | |\\/| |/ _` | '_ \\ / _` |/ _` |/ _ \\ '__|");
+    console.log("| |__| | | | | | |_) | | (_) | |_| |  __/  __/ | |  | | (_| | | | | (_| | (_| |  __/ |");
+    console.log("\\____/_| |_| |_| .__/|_|\\___/ \\__, |\\___|\\___| \\_|  |_/\\__,_|_| |_|\\__,_|\\__, |\\___|_|");
+    console.log("               | |             __/ |                                      __/ |");
+    console.log("               |_|            |___/                                      |___/");  
     console.log("Welcome to Employee Tracker!");
     }
 
@@ -36,13 +38,14 @@ function mainMenu() {
       name: 'action',
       message: 'What would you like to do?',
       choices: [
+        'View All Departments',
+        'Add Department',
+        'View All Roles',
+        'Add Role',
         'View All Employees',
         'Add Employee',
         'Update Employee Role',
-        'View All Roles',
-        'Add Role',
-        'View All Departments',
-        'Add Department',
+        'Update Employee Manager',
         'Quit'
       ]
     }
@@ -57,6 +60,9 @@ function mainMenu() {
         break;
       case 'Update Employee Role':
         updateEmployeeRole();
+        break;
+      case 'Update Employee Manager':
+        updateEmployeeManager();
         break;
       case 'View All Roles':
         viewAllRoles();
@@ -237,4 +243,92 @@ function addEmployee() {
     });
 }
 
-// update function
+// update functions
+
+function updateEmployeeRole() {
+    // First, fetch the list of employees
+    connection.query('SELECT id, CONCAT(first_name, " ", last_name) AS name FROM employee', (err, employees) => {
+        if (err) throw err;
+
+        // Then, fetch the list of roles
+        connection.query('SELECT id, role_title FROM role', (err, roles) => {
+            if (err) throw err;
+
+            inquirer.prompt([
+                {
+                    type: 'list',
+                    name: 'employeeId',
+                    message: "Which employee's role do you want to update?",
+                    choices: employees.map(employee => ({
+                        name: employee.name,
+                        value: employee.id
+                    }))
+                },
+                {
+                    type: 'list',
+                    name: 'roleId',
+                    message: "What is the employee's new role?",
+                    choices: roles.map(role => ({
+                        name: role.role_title,
+                        value: role.id
+                    }))
+                }
+            ])
+            .then(answers => {
+                // Update the employee's role in the database
+                const query = `UPDATE employee SET role_id = ? WHERE id = ?`;
+                connection.query(query, [answers.roleId, answers.employeeId], (err, results) => {
+                    if (err) throw err;
+                    console.log("Employee role updated successfully.");
+                    mainMenu();
+                });
+            });
+        });
+    });
+}
+
+function updateEmployeeManager() {
+    // Fetch the list of employees
+    connection.query('SELECT id, CONCAT(first_name, " ", last_name) AS name FROM employee', (err, employees) => {
+        if (err) throw err;
+
+        // Let user choose an employee to update
+        inquirer.prompt([
+            {
+                type: 'list',
+                name: 'employeeId',
+                message: "Select the employee whose manager you want to update:",
+                choices: employees.map(emp => ({ name: emp.name, value: emp.id }))
+            }
+        ])
+        .then(answer => {
+            const employeeId = answer.employeeId;
+
+            // Fetch the list again for selecting a new manager
+            let choices = employees
+                .filter(emp => emp.id !== employeeId)
+                .map(emp => ({ name: emp.name, value: emp.id }));
+            choices.push({ name: 'No Manager', value: null });
+
+            inquirer.prompt([
+                {
+                    type: 'list',
+                    name: 'managerId',
+                    message: "Select the new manager:",
+                    choices: choices
+                }
+            ])
+            .then(answer => {
+                // Update the manager_id of the selected employee
+                const query = 'UPDATE employee SET manager_id = ? WHERE id = ?';
+                connection.query(query, [answer.managerId, employeeId], (err, results) => {
+                    if (err) throw err;
+                    console.log("Employee's manager updated successfully.");
+                    mainMenu();
+                });
+            });
+        });
+    });
+}
+
+// delete function
