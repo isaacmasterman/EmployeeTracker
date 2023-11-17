@@ -46,6 +46,9 @@ function mainMenu() {
         'Add Employee',
         'Update Employee Role',
         'Update Employee Manager',
+        'Delete Department',
+        'Delete Role',
+        'Delete Employee',
         'Quit'
       ]
     }
@@ -75,6 +78,15 @@ function mainMenu() {
         break;
       case 'Add Department':
         addDepartment();
+        break;
+      case 'Delete Department':
+        deleteDepartment();
+        break;
+      case 'Delete Role':
+        deleteRole();
+        break;
+      case 'Delete Employee':
+        deleteEmployee();
         break;
       case 'Quit':
         connection.end();
@@ -332,3 +344,92 @@ function updateEmployeeManager() {
 }
 
 // delete function
+
+function deleteDepartment() {
+    connection.query('SELECT id, department_name FROM department', (err, departments) => {
+      if (err) throw err;
+  
+      inquirer.prompt([
+        {
+          type: 'list',
+          name: 'departmentId',
+          message: 'Which department do you want to delete?',
+          choices: departments.map(dept => ({ name: dept.department_name, value: dept.id }))
+        }
+      ])
+      .then(answer => {
+        // Check if there are roles linked to the department
+        connection.query('SELECT * FROM role WHERE department_id = ?', [answer.departmentId], (err, roles) => {
+          if (err) throw err;
+  
+          if (roles.length > 0) {
+            console.log('Cannot delete a department with existing roles. Please delete the roles first.');
+            mainMenu();
+          } else {
+            // Proceed with deletion
+            connection.query('DELETE FROM department WHERE id = ?', [answer.departmentId], (err, results) => {
+              if (err) throw err;
+              console.log('Department deleted successfully.');
+              mainMenu();
+            });
+          }
+        });
+      });
+    });
+  }
+  
+  function deleteRole() {
+    connection.query('SELECT id, role_title FROM role', (err, roles) => {
+        if (err) throw err;
+
+        inquirer.prompt([
+            {
+                type: 'list',
+                name: 'roleId',
+                message: 'Which role do you want to delete?',
+                choices: roles.map(role => ({ name: role.role_title, value: role.id }))
+            }
+        ])
+        .then(answer => {
+            // Check if there are employees linked to this role
+            connection.query('SELECT * FROM employee WHERE role_id = ?', [answer.roleId], (err, employees) => {
+                if (err) throw err;
+
+                if (employees.length > 0) {
+                    console.log('Cannot delete a role with existing employees. Please reassign or remove the employees first.');
+                    mainMenu();
+                } else {
+                    // Proceed with deletion
+                    connection.query('DELETE FROM role WHERE id = ?', [answer.roleId], (err, results) => {
+                        if (err) throw err;
+                        console.log('Role deleted successfully.');
+                        mainMenu();
+                    });
+                }
+            });
+        });
+    });
+}
+
+function deleteEmployee() {
+    connection.query('SELECT id, CONCAT(first_name, " ", last_name) AS name FROM employee', (err, employees) => {
+        if (err) throw err;
+
+        inquirer.prompt([
+            {
+                type: 'list',
+                name: 'employeeId',
+                message: 'Which employee do you want to delete?',
+                choices: employees.map(emp => ({ name: emp.name, value: emp.id }))
+            }
+        ])
+        .then(answer => {
+            const query = 'DELETE FROM employee WHERE id = ?';
+            connection.query(query, [answer.employeeId], (err, results) => {
+                if (err) throw err;
+                console.log('Employee deleted successfully.');
+                mainMenu();
+            });
+        });
+    });
+}
